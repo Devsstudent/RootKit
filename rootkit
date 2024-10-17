@@ -65,24 +65,28 @@ create_rootkit () {
     mkdir -p $TMP_FOLDER
     sudo mount /dev/${LOOP}p1 $TMP_FOLDER
 
-    $SETUP_FOLDER/docker_fill
+    sudo docker build ./setup -t rootkit-vm
+    sudo docker run --rm -v /tmp/my-rootfs:/my-rootfs rootkit-vm /init.sh
 
     sudo mkdir -p $TMP_FOLDER/boot/grub
     sudo cp $LINUX_PATH $TMP_FOLDER/boot/vmlinuz
     sudo grub-install --directory=/usr/lib/grub/i386-pc --boot-directory=$TMP_FOLDER/boot /dev/$LOOP
     
+    sudo mkdir $TMP_FOLDER/home
+
     sudo umount $TMP_FOLDER
     sudo losetup -d /dev/$LOOP
 
     update_rootkit
 
-    echo "Disk created"
+    echo "Disk created!"
 }
 
 
 start_rootkit () {
     # umount_rootkit > /dev/null
-    qemu-system-x86_64 -hda $DISK_FILE -nographic
+    qemu-system-x86_64 -hda $DISK_FILE -nographic 
+    exit 0
 }
 
 i=$(($#-2))
