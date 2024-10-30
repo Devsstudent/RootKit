@@ -85,7 +85,7 @@ create_rootkit () {
 
 start_rootkit () {
     # umount_rootkit > /dev/null
-    qemu-system-x86_64 -hda $DISK_FILE -nographic 
+    qemu-system-x86_64 -hda $DISK_FILE -nographic
     exit 0
 }
 
