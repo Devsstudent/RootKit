@@ -1,0 +1,4 @@
+linux-*
+.git
+.env
+.s*
