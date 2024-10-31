@@ -1,1 +1,0 @@
-savedcmd_/home/hanako/base/src/src/rootkit.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/hanako/base/src/src/rootkit.ko /home/hanako/base/src/src/rootkit.o /home/hanako/base/src/src/rootkit.mod.o
