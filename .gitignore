@@ -2,3 +2,4 @@ linux-*
 .git
 .env
 .s*
+*.img
