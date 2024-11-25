@@ -1,4 +1,4 @@
-obj-m += rootkit.o test.o
+obj-m += rootkit.o 
 
 KDIR 		:= $(PWD)/../linux-6.10.10/
 SRC_DIR		:= $(PWD)/src
