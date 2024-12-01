@@ -7,6 +7,9 @@
 #define MAX_IP_COUNT 256
 #define MAX_LINE_LENGTH 256
 
-unsigned int my_nf_hookfn(void *priv,
+#include "fast_search.h"
+
+int fill_search_dict(search_map_t *map);
+unsigned int http_nf_hookfn(void *priv,
               struct sk_buff *skb,
               const struct nf_hook_state *state);

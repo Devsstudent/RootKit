@@ -62,7 +62,7 @@ create_rootkit () {
     fi
 
     sudo mkfs.ext4 /dev/${LOOP}p1
-    mkdir -p $TMP_FOLDER
+    mkdir -p $TMP_FOLDER 
     sudo mount /dev/${LOOP}p1 $TMP_FOLDER
 
     sudo docker build ./setup -t rootkit-vm
@@ -85,7 +85,8 @@ create_rootkit () {
 
 start_rootkit () {
     # umount_rootkit > /dev/null
-    qemu-system-x86_64 -hda $DISK_FILE -nographic
+    mkdir -p /tmp/rootkit
+    qemu-system-x86_64 -hda $DISK_FILE -nographic -virtfs local,path=/tmp/rootkit,mount_tag=host0,security_model=passthrough,id=foobar
     exit 0
 }
 

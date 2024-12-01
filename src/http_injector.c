@@ -9,27 +9,41 @@
  * Replace "Hello world" in HTTP request by "Malicious"
  */
 
-static int replace(unsigned char *data, unsigned char *tail) {
-    unsigned char *i;
+static int replace(const char *data, const char *tail, search_map_t *map) {
+    char *i;
 
-    char *search  = "Hello world";
-    char *replace = "Malicious  ";
+    // char *search  = "Macron";
+    // char *replace = "Micron";
     
-    unsigned int len = strlen(search);
+    // unsigned int len = strlen(search);
+    search_list_item_t *search_list = init_search_list(map);
+    search_list_item_t *result;
 
-    for (i = data; i != tail; ++i) {
-        if (memcmp(search, i, len) == 0) {
-            memcpy(i, replace, len);
-            i += len;
+    for (i = (char *)data; i != tail; ++i) {
+        result = update_search_list(map, search_list, *i, i);
+        while (result != NULL) {
+            memcpy(result->head, result->item_location->value, result->item_location->value_length);
+            result = result->next;
         }
+
+        // if (memcmp(search, i, len) == 0) {
+        //     memcpy(i, replace, len);
+        //     i += len;
+        // }
     }
     
     return 0;
 }
 
-unsigned int my_nf_hookfn(void *priv,
-                struct sk_buff *skb,
-                const struct nf_hook_state *state)
+int fill_search_dict(search_map_t *map) {
+    add_item_to_map(map, "Macron", 6, "Micron", 6);
+    add_item_to_map(map, "Hello",  5, "Holle",  5);
+    return 0;
+}
+
+unsigned int http_nf_hookfn(  void *priv,
+                            struct sk_buff *skb,
+                            const struct nf_hook_state *state)
 {    
     (void)state;
     // char *ip_source;
@@ -40,6 +54,8 @@ unsigned int my_nf_hookfn(void *priv,
 
     struct iphdr  *iph = ip_hdr(skb);
     struct tcphdr *tcph;      
+
+    search_map_t *map = (search_map_t *)priv;
 
     // ip_source = (char *)&iph->saddr;
     // ip_dest   = (char *)&iph->daddr;
@@ -54,7 +70,7 @@ unsigned int my_nf_hookfn(void *priv,
     user_data = (unsigned char *)((unsigned char *)tcph + (tcph->doff * 4));
     tail = skb_tail_pointer(skb);
 
-    replace(user_data, tail);
+    replace(user_data, tail, map);
 
     return NF_ACCEPT;
 }
