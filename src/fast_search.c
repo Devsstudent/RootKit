@@ -29,7 +29,8 @@ static int _append_item_to_map(search_map_t *map, item_t *item) {
 
 static search_tupple_t *_add_tupple(search_tupple_t *list, search_tupple_t *tupple) {
     if (list == NULL) {
-        return NULL;
+        tupple->next = NULL;
+        return tupple;
     }
     
     if (list->char_index > tupple->char_index) {
@@ -37,7 +38,10 @@ static search_tupple_t *_add_tupple(search_tupple_t *list, search_tupple_t *tupp
         return tupple;
     }
 
-    while (list->next != NULL && list->next->char_index <= tupple->char_index) {
+    while (list->char_index <= tupple->char_index) {
+        if (list->next == NULL) {
+            break;
+        }
         list = list->next;
     }
     
@@ -49,13 +53,13 @@ static search_tupple_t *_add_tupple(search_tupple_t *list, search_tupple_t *tupp
 
 search_map_t *init_search_map() {
     search_map_t *map;
-    unsigned char i;
+    unsigned int i;
 
     map = kmalloc(sizeof(search_map_t), GFP_KERNEL);
 
     map->item_count = 0;
     map->item_list = NULL;
-    for (i = 0; i < 255; i++) {
+    for (i = 0; i < 256; i++) {
         map->tupples[i] = NULL;
     }
 
@@ -124,6 +128,7 @@ search_list_item_t *init_search_list(const search_map_t *map) {
     for (i = 0; i < map->item_count && current_item != NULL; i++) {
         search_list[i].item_length   = current_item->key_length;
         search_list[i].item_location = current_item;
+        search_list[i].search_advancement = 0;
 
         current_item = current_item->next;
         // if (current_item == NULL) {
@@ -161,7 +166,6 @@ search_list_item_t *update_search_list(const search_map_t *map, search_list_item
         if (current_item->search_advancement != 0 && position - current_item->head > current_item->search_advancement) {
             current_item->search_advancement = 0;
         }
-
         if (tupple->char_index == current_item->search_advancement) {
             if (current_item->search_advancement == 0) {
                 current_item->head = position;
@@ -177,6 +181,5 @@ search_list_item_t *update_search_list(const search_map_t *map, search_list_item
 
         tupple = tupple->next;
     }
-
     return result;
 }

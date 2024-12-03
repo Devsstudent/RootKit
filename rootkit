@@ -12,7 +12,7 @@ Arguments:
 EOF
 }   
 
-LINUX_PATH=./linux-6.11/arch/x86/boot/bzImage
+LINUX_PATH=./linux-6.10.10/arch/x86/boot/bzImage
 DISK_FILE="disk.img"
 DISK_SIZE="450M"
 

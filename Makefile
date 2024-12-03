@@ -11,7 +11,7 @@
 # clean:
 # 	$(MAKE) -C $(KDIR) M=$(SRC_DIR) clean
 
-KDIR 		:= $(PWD)/linux-6.11
+KDIR 		:= $(PWD)/linux-6.10.10
 SRC_DIR		:= $(PWD)/src
 FS_DIR		:= $(PWD)/fs/lib/secret
 
