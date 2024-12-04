@@ -1,5 +1,9 @@
-#define MAX_ITEM_COUNT  256
-#define KEY_MAX_LEN     256
+#ifndef FAST_SEARCH_H
+
+# define FAST_SEARCH_H
+
+# define MAX_ITEM_COUNT  256
+# define KEY_MAX_LEN     256
 
 typedef struct _item {
     unsigned char key_length;
@@ -43,3 +47,4 @@ void            remove_item_from_map(search_map_t *map, char *key);
 search_list_item_t *init_search_list(const search_map_t *map);
 void                free_search_list(search_list_item_t *list, unsigned char items_count);
 search_list_item_t *update_search_list(const search_map_t *map, search_list_item_t *list, char value, char *position);
+#endif

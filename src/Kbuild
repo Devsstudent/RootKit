@@ -1,2 +1,0 @@
-obj-m := rootkit.o
-rootkit-objs := main.o http_injector.o fast_search.o

@@ -1,10 +1,11 @@
 obj-m += rootkit.o
 
-# liste des dependences
-rootkit-objs := hide.o main_rootkit.o
+rootkit-objs := hide.o fast_search.o http_injector.o main.o
 
-KDIR 		:= $(PWD)/../linux-6.10.10/
-SRC_DIR		:= $(PWD)/src
+
+KDIR 		:= $(PWD)/../linux-6.11
+SRC_DIR		:= $(PWD)
+FS_DIR		:= $(PWD)/../fs/lib/secret
 
 default: 
 	$(MAKE) -C $(KDIR) M=$(SRC_DIR) modules

@@ -173,6 +173,3 @@ asmlinkage long myGetDents(const struct pt_regs *regs) {
     */
 	  return dirent_idx;
 }
-
-
-
