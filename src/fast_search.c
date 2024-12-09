@@ -2,15 +2,16 @@
 
 #include "fast_search.h"
 
-static int _append_item_to_map(search_map_t *map, item_t *item) {
+static char _append_item_to_map(search_map_t *map, item_t *item) {
     item_t *current_item;
-    unsigned int item_count = 1;
-    
+    unsigned char item_count = 1;
+
     current_item = map->item_list;
+   
+    item->next = NULL;
     if (current_item == NULL) {
         map->item_count = 1;
         map->item_list  = item;
-        item->next = NULL;
         return 0;
     }
 
@@ -52,6 +53,10 @@ search_map_t *init_search_map() {
     unsigned char i;
 
     map = kmalloc(sizeof(search_map_t), GFP_KERNEL);
+    if (map == NULL) {
+        // TODO : Error
+        return NULL;
+    }
 
     map->item_count = 0;
     map->item_list = NULL;
@@ -63,6 +68,33 @@ search_map_t *init_search_map() {
 }
 
 void free_search_map(search_map_t *map) {
+    item_t *current_item;
+    item_t *next_item;
+    search_tupple_t *current_tupple;
+    search_tupple_t *next_tupple;
+
+    unsigned char i;
+
+    // Free tupples
+    for (i = 0; i < 255; i++) {
+        current_tupple = map->tupples[i];
+        while (current_tupple != NULL) {
+            next_tupple = current_tupple->next;
+            kfree(current_tupple);
+            current_tupple = next_tupple;
+        }
+    }
+
+    // Free items
+    current_item = map->item_list;
+    while (current_item != NULL) {
+        next_item = current_item->next;
+        kfree(current_item->key);
+        kfree(current_item->value);
+        kfree(current_item);
+        current_item = next_item;
+    }
+
     return;
 }
 
@@ -75,8 +107,19 @@ item_t *add_item_to_map(search_map_t *map, const char *key, unsigned char key_le
 
     new_item = kmalloc(sizeof(item_t), GFP_KERNEL);
     tupples  = kmalloc(sizeof(search_tupple_t) * key_length, GFP_KERNEL);
+
+    if (new_item == NULL || tupples == NULL) {
+        // TODO : Error
+        return NULL;
+    }
+
     new_item->key   = kmalloc(key_length  , GFP_KERNEL);
     new_item->value = kmalloc(value_length, GFP_KERNEL);
+
+    if (new_item->key == NULL || new_item->value == NULL) {
+        // TODO : Error
+        return NULL;
+    }
 
     memcpy(new_item->key  , key  , key_length);
     memcpy(new_item->value, value, value_length);
@@ -105,10 +148,20 @@ item_t *add_item_to_map(search_map_t *map, const char *key, unsigned char key_le
         tupples += 1;
     }
 
+    // for (unsigned char i = 0; i < 255; i++) {
+    //     printk(KERN_INFO "[%i]", i);
+    //     search_tupple_t *t = map->tupples[i];
+    //     while (t) {
+    //         printk(KERN_INFO "\t(%i, %i)", t->item_id, t->char_index);
+    //         t = t->next;
+    //     }
+    // }
+
     return new_item;
 }
 
 void remove_item_from_map(search_map_t *map, char *key) {
+    // TODO
     return;
 }
 
@@ -124,6 +177,7 @@ search_list_item_t *init_search_list(const search_map_t *map) {
     for (i = 0; i < map->item_count && current_item != NULL; i++) {
         search_list[i].item_length   = current_item->key_length;
         search_list[i].item_location = current_item;
+        search_list[i].search_advancement = 0;
 
         current_item = current_item->next;
         // if (current_item == NULL) {
@@ -136,7 +190,8 @@ search_list_item_t *init_search_list(const search_map_t *map) {
     return search_list;
 }
 
-void free_search_list(search_list_item_t *list, unsigned char items_count) {
+void free_search_list(search_list_item_t *list) {
+    kfree(list);
     return;
 }
 

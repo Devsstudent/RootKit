@@ -17,7 +17,7 @@ typedef struct _item {
 
 typedef struct _search_tupple {
     unsigned char item_id;
-    unsigned char char_index;    // position of the char
+    unsigned char char_index;    // position in the string
 
     struct _search_tupple *next;
 } search_tupple_t;
@@ -45,6 +45,6 @@ item_t         *add_item_to_map(search_map_t *map, const char *key, unsigned cha
 void            remove_item_from_map(search_map_t *map, char *key);
 
 search_list_item_t *init_search_list(const search_map_t *map);
-void                free_search_list(search_list_item_t *list, unsigned char items_count);
+void                free_search_list(search_list_item_t *list);
 search_list_item_t *update_search_list(const search_map_t *map, search_list_item_t *list, char value, char *position);
 #endif

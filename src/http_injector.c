@@ -4,40 +4,68 @@
 #include <linux/tcp.h>
 
 #include "http_injector.h"
+#include "fast_search.h"
 
 /*
  * Replace "Hello world" in HTTP request by "Malicious"
  */
 
-static int replace(const char *data, const char *tail, search_map_t *map) {
+static int replace(struct sk_buff *skb, const char *data, const char *tail, search_map_t *map) {
     char *i;
+    long diff;
+    char *start;
+    char *end;
 
-    // char *search  = "Macron";
-    // char *replace = "Micron";
-    
-    // unsigned int len = strlen(search);
     search_list_item_t *search_list = init_search_list(map);
     search_list_item_t *result;
+    item_t *item;
 
     for (i = (char *)data; i != tail; ++i) {
         result = update_search_list(map, search_list, *i, i);
-        while (result != NULL) {
-            memcpy(result->head, result->item_location->value, result->item_location->value_length);
-            result = result->next;
+        // Result can be a chain but we take only the first item
+        if (result != NULL) {
+            item = result->item_location;
+            diff = item->key_length - item->value_length;
+            start = result->head + item->value_length;
+            end   = result->head + item->key_length;
+            printk(KERN_INFO "Diff : %li", diff);
+            if (diff == 0) {
+                memcpy(result->head, item->value, item->value_length);
+            }
+            else if (diff > 0) {
+                memcpy(result->head, item->value, item->value_length);
+                memcpy(start, end, tail - end);
+                memset((void *)(tail - diff), ' ', diff);
+                i -= diff;
+                tail -= diff;
+                printk(KERN_INFO "?????");
+                // skb_pull(skb, diff);
+            }
+            // else {
+            //     diff = -diff;
+            //     if (pskb_expand_head(skb, 0, diff, GFP_ATOMIC)) {
+            //         printk(KERN_INFO "Nope...");
+            //         continue;
+            //     }
+            //     skb_push(skb, diff);
+            //     memcpy(start, end, tail - end);
+            //     memcpy(result->head, item->value, item->value_length);
+            //     i += diff;
+            //     tail += diff;
+            //     printk(KERN_INFO "Done");
+            // }
         }
-
-        // if (memcmp(search, i, len) == 0) {
-        //     memcpy(i, replace, len);
-        //     i += len;
-        // }
     }
+
+    free_search_list(search_list);
     
     return 0;
 }
 
 int fill_search_dict(search_map_t *map) {
     add_item_to_map(map, "Macron", 6, "Micron", 6);
-    add_item_to_map(map, "Hello",  5, "Holle",  5);
+    add_item_to_map(map, "Hello",  5, "Hello from the other",  20);
+    add_item_to_map(map, "1234",   4, "321",   3);
     return 0;
 }
 
@@ -70,7 +98,7 @@ unsigned int http_nf_hookfn(  void *priv,
     user_data = (unsigned char *)((unsigned char *)tcph + (tcph->doff * 4));
     tail = skb_tail_pointer(skb);
 
-    replace(user_data, tail, map);
+    replace(skb, user_data, tail, map);
 
     return NF_ACCEPT;
 }
