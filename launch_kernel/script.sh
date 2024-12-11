@@ -19,7 +19,7 @@ sudo docker run --rm -v /tmp/my-rootfs:/my-rootfs alpine-vm > /dev/stderr /scrip
 
 share_folder="/tmp/qemu-share"
 mkdir -p $share_folder
-export share_folder = $share_folder
+export share_folder=$share_folder
 
 echo "Running QEMU..."
-qemu-system-x86_64 -drive file=disk.img,format=raw -nographic -virtfs local,path=$share_folder,mount_tag=host0,security_model=passthrough,id=foobar  -enable-kvm -device virtio-net-pci,netdev=net0 -netdev user,id=net0,hostfwd=tcp::8080-:80
+qemu-system-x86_64 -drive file=disk.img,format=raw -nographic -virtfs local,path=$share_folder,mount_tag=host0,security_model=passthrough,id=foobar  -enable-kvm -device virtio-net-pci,netdev=net0 -netdev user,id=net0,hostfwd=tcp::8080-:80 -enable-kvm
