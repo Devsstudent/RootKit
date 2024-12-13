@@ -56,7 +56,6 @@ create_rootkit () {
 
     LOOP=$(losetup -l | grep $DISK_FILE | grep -o 'loop.')
     LOOP_COUNT=$(losetup -l | grep $DISK_FILE | grep -o 'loop.' | wc -l)
-    echo $LOOP
     if [ $LOOP_COUNT -ne 1 ]; then
         echo "Error : Failed to attach the loop"
         exit
