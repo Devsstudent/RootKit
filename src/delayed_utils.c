@@ -78,6 +78,9 @@ void delayed_module_init_work(struct work_struct *work)
 		if (fh_install_hook(g_f_hook[0])) {
 			printk(KERN_INFO "Bruh minstall hook eroor\n");
 		}
+		if (fh_install_hook(g_f_hook[1])) {
+			printk(KERN_INFO "Bruh minstall hook eroor\n");
+		}
 
 		return;
 	}
