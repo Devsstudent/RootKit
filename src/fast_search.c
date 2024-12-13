@@ -29,6 +29,8 @@ static char _append_item_to_map(search_map_t *map, item_t *item) {
 }
 
 static search_tupple_t *_add_tupple(search_tupple_t *list, search_tupple_t *tupple) {
+    search_tupple_t *search = list;
+    
     if (list == NULL) {
         return NULL;
     }
@@ -38,12 +40,12 @@ static search_tupple_t *_add_tupple(search_tupple_t *list, search_tupple_t *tupp
         return tupple;
     }
 
-    while (list->next != NULL && list->next->char_index <= tupple->char_index) {
-        list = list->next;
+    while (search->next != NULL && search->next->char_index <= tupple->char_index) {
+        search = search->next;
     }
     
-    tupple->next = list->next;
-    list->next = tupple;
+    tupple->next = search->next;
+    search->next = tupple;
 
     return list;
 }
@@ -143,19 +145,15 @@ item_t *add_item_to_map(search_map_t *map, const char *key, unsigned char key_le
         }
         else {
             map->tupples[(unsigned char)key[i]] = _add_tupple(map->tupples[(unsigned char)key[i]], tupples);
+            search_tupple_t *t = map->tupples[(unsigned char)key[i]];
+            t = t->next;
+            while (t) {
+                t = t->next;
+            }
         }
 
         tupples += 1;
     }
-
-    // for (unsigned char i = 0; i < 255; i++) {
-    //     printk(KERN_INFO "[%i]", i);
-    //     search_tupple_t *t = map->tupples[i];
-    //     while (t) {
-    //         printk(KERN_INFO "\t(%i, %i)", t->item_id, t->char_index);
-    //         t = t->next;
-    //     }
-    // }
 
     return new_item;
 }
@@ -180,11 +178,6 @@ search_list_item_t *init_search_list(const search_map_t *map) {
         search_list[i].search_advancement = 0;
 
         current_item = current_item->next;
-        // if (current_item == NULL) {
-        //     // TODO : Error
-        //     printk(KERN_INFO "Failed to init List");
-        //     return NULL;
-        // }
     }
 
     return search_list;
@@ -207,7 +200,6 @@ search_list_item_t *update_search_list(const search_map_t *map, search_list_item
     tupple = map->tupples[(unsigned char)value];
     while (tupple != NULL) {
         current_item = list + tupple->item_id;
-        // printk(KERN_INFO "%c -> %i (%i) : %i", value, tupple->item_id, tupple->char_index, current_item->search_advancement);
 
         if (current_item->head > position) {
             current_item->head = NULL;
