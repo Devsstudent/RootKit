@@ -179,3 +179,27 @@ Pour cela, chaque entrée de la table "*item*" est décomposée en caractères, 
 Grâce à cette table, lorsqu'on parcoure un texte, il suffit de regarder pour chaque caractère, la liste de `search_tupple_t` associée. Un tableau de `search_list_item_t` est maintenu pour garder en mémoire l'avancement de la recherche pour chaque *item*.
 
 La recherche de tous les éléments se fait ainsi en un unique parcours du texte.
+
+## Overwriting des Syscalls avec ftrace
+
+Une des techniques utilisées dans notre rootkit consiste à surcharger les appels systèmes (syscalls). Pour ce faire, nous avons utilisé **ftrace**, un outil intégré au noyau Linux qui permet de rediriger l'exécution des fonctions systèmes vers des versions personnalisées. Cela nous permet de modifier le comportement des syscalls sans nécessiter de modifications profondes du noyau, garantissant ainsi une plus grande furtivité.
+
+### Utilisation de ftrace pour le hook des syscalls
+
+Nous utilisons la structure `ftrace_hook` pour rediriger l'exécution des appels systèmes. Cette structure permet de spécifier le nom de la fonction à surcharger, la fonction de remplacement, et de stocker l'adresse de la fonction originale pour pouvoir y revenir si nécessaire. Concrètement, cela nous permet d'intercepter des appels systèmes comme `getdents` (qui liste les fichiers dans un répertoire) pour masquer certains fichiers ou processus afin de rendre notre rootkit invisible à l'utilisateur.
+
+### Fonction `delayed` et vérification de la disponibilité du système
+
+Avant de déployer pleinement notre rootkit, il est crucial de s'assurer que le système est complètement prêt. Pour cela, nous avons implémenté une fonction `delayed` qui s'exécute à intervalles réguliers. Cette fonction vérifie l'état du système et attend que toutes les conditions nécessaires (comme le montage du système de fichiers) soient réunies avant de lancer le rootkit. Cela permet d'éviter toute détection prématurée ou erreur durant le démarrage du système.
+
+### Insertion dans `initttab` pour charger le rootkit au démarrage
+
+Pour que notre rootkit soit chargé automatiquement à chaque démarrage de la machine, nous avons modifié le fichier `inittab`.
+
+### Masquage des fichiers et des PIDs avec `getdents`
+
+L'une des fonctionnalités clés de notre rootkit est le masquage des fichiers et des processus. Pour ce faire, nous avons surchargé l'appel système `getdents`, qui est utilisé pour lister les fichiers dans un répertoire. Lorsque cette fonction est appelée, notre version modifiée filtre certains fichiers et processus en fonction de critères spécifiques, comme l'existence de fichiers ou processus associés à notre rootkit ou à d'autres activités malveillantes. Cela permet de cacher des fichiers comme le binaire du rootkit ou des processus associés.
+
+### En résumé
+
+En résumé, notre rootkit est chargé automatiquement au démarrage du système. Après avoir attendu que le système soit complètement monté et prêt, il compile et exécute le compagnon (le "companion"). Ce dernier est conçu pour être invisible : il est masqué dans la liste des processus en cours d'exécution, et tout fichier ou répertoire associé à notre rootkit est également rendu invisible. Cela garantit que notre rootkit reste furtif tout au long de son exécution.
