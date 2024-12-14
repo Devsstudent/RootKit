@@ -1,1 +1,0 @@
-savedcmd_/home/hanako/RootKit/src/rootkit.ko := ld -r -m elf_x86_64 -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T scripts/module.lds -o /home/hanako/RootKit/src/rootkit.ko /home/hanako/RootKit/src/rootkit.o /home/hanako/RootKit/src/rootkit.mod.o
