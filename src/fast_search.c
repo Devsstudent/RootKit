@@ -200,7 +200,7 @@ search_list_item_t *update_search_list(const search_map_t *map, search_list_item
     tupple = map->tupples[(unsigned char)value];
     while (tupple != NULL) {
         current_item = list + tupple->item_id;
-
+        
         if (current_item->head > position) {
             current_item->head = NULL;
         }
@@ -210,6 +210,7 @@ search_list_item_t *update_search_list(const search_map_t *map, search_list_item
         }
 
         if (tupple->char_index == current_item->search_advancement) {
+            // printk(KERN_INFO "%c -> %i (%s)", value, current_item->search_advancement, current_item->item_location->key);
             if (current_item->search_advancement == 0) {
                 current_item->head = position;
             }

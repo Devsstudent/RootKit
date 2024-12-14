@@ -1,4 +1,32 @@
-### RootKit
+# RootKit
+
+## Manuel utilisateur
+
+### Injection HTTP
+
+Pour tester l'injection HTTP, il suffit de contacter une page HTTP avec curl et observer l'application de règles de test enregistrée.
+
+Les trois modifications actuellement ajoutées sont:
+
+- "Hello world" -> "Holle Lord"
+- "Example Domain" -> "Rootkit Domain"
+- "1234" -> "56"
+
+Vous pouvez par exemple contacter example.com
+
+```console
+curl -4 http://example.com
+```
+
+le `-4` est important pour utiliser IPv4, IPv6 n'a pas été implémenté.
+
+Vous pouvez aussi créer un fichier .html en local avec les valeurs de test et lancer un serveur web avec 
+
+```console
+python3 -m http.server
+```
+
+# Remove under
 
 **There is a script that build image with our kernel**
 

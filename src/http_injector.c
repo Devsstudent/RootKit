@@ -32,9 +32,13 @@ static int replace(struct sk_buff *skb, unsigned char *data, unsigned char *tail
             }
             else if (diff > 0) {
                 memcpy(result->head, item->value, item->value_length);
-                memcpy(i-diff, i, tail-i-diff);
+                printk(KERN_INFO "%s", result->head);
+                memcpy(result->head + item->value_length, result->head + item->key_length, tail-i-diff);
                 tail -= diff;
                 memset((void *)(tail-1), ' ', diff);
+                
+                skb_trim(skb, tail-skb->head);
+                
                 i -= diff;
             }
         }
@@ -45,13 +49,13 @@ static int replace(struct sk_buff *skb, unsigned char *data, unsigned char *tail
 }
 
 int fill_search_dict(search_map_t *map) {
-    add_item_to_map(map, "Macron", 6, "Micron", 6);
-    add_item_to_map(map, "Hello world",  11, "Hello lord",  10);
-    add_item_to_map(map, "1234",   4, "21",   3);
+    add_item_to_map(map, "Hello world",  11, "Holle Lord",  10);
+    add_item_to_map(map, "Example Domain",  14, "Rootkit Domain",  14);
+    add_item_to_map(map, "1234",   4, "56",   2);
     return 0;
 }
 
-unsigned int http_nf_hookfn(  void *priv,
+unsigned int http_nf_hookfn(void *priv,
                             struct sk_buff *skb,
                             const struct nf_hook_state *state)
 {    
@@ -71,6 +75,15 @@ unsigned int http_nf_hookfn(  void *priv,
 
     user_data = (unsigned char *)((unsigned char *)tcph + (tcph->doff * 4));
     tail = skb_tail_pointer(skb);
+    
+    // Not working with fragmentation
+    // if (memcmp(user_data, "HTTP/1.0 200 OK", 15) != 0) {
+    //     return NF_ACCEPT;
+    // }
+
+    if (isalnum(*user_data) == 0) {
+        return NF_ACCEPT;
+    }
 
     replace(skb, user_data, tail, map);
 
