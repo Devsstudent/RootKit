@@ -26,6 +26,10 @@ Vous pouvez aussi créer un fichier .html en local avec les valeurs de test et l
 python3 -m http.server
 ```
 
+### Companion
+
+Veuillez placer le compaion.c dans le ./fs/root/, il seras exectuer au chargement du rootkit en tant que root.
+
 # Remove under
 
 **There is a script that build image with our kernel**
