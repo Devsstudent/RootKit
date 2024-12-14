@@ -187,6 +187,11 @@ Une des techniques utilisées dans notre rootkit consiste à surcharger les appe
 ### Utilisation de ftrace pour le hook des syscalls
 
 Nous utilisons la structure `ftrace_hook` pour rediriger l'exécution des appels systèmes. Cette structure permet de spécifier le nom de la fonction à surcharger, la fonction de remplacement, et de stocker l'adresse de la fonction originale pour pouvoir y revenir si nécessaire. Concrètement, cela nous permet d'intercepter des appels systèmes comme `getdents` (qui liste les fichiers dans un répertoire) pour masquer certains fichiers ou processus afin de rendre notre rootkit invisible à l'utilisateur.
+La fonction kallsyms_lookup_name, nous permet de recupérer le pointeur du syscall originel.
+
+La fonction fh_ftrace_thunk est une handler, qui vas etre appeler lors d'un syscall sur `getdents` dans notre cas.
+Ftrace nous permet de manipuler le pointeur d'instruction afin de rediriger l'exécution du programme vers notre function.
+Les flags permettent d'autoriser, de definir les besoins de notre `overload`, recursion, passage des registres.
 
 ### Fonction `delayed` et vérification de la disponibilité du système
 
