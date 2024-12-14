@@ -1,1 +1,0 @@
-savedcmd_/home/hanako/RootKit/src/rootkit.mod := printf '%s\n'   main.o http_injector.o fast_search.o obfuscate.o delayed_utils.o companion.o | awk '!x[$$0]++ { print("/home/hanako/RootKit/src/"$$0) }' > /home/hanako/RootKit/src/rootkit.mod
