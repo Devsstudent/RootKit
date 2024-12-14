@@ -32,7 +32,6 @@ static int replace(struct sk_buff *skb, unsigned char *data, unsigned char *tail
             }
             else if (diff > 0) {
                 memcpy(result->head, item->value, item->value_length);
-                printk(KERN_INFO "%s", result->head);
                 memcpy(result->head + item->value_length, result->head + item->key_length, tail-i-diff);
                 tail -= diff;
                 memset((void *)(tail-1), ' ', diff);
@@ -69,8 +68,9 @@ unsigned int http_nf_hookfn(void *priv,
 
     search_map_t *map = (search_map_t *)priv;
 
-    if (iph->protocol != IPPROTO_TCP)
+    if (iph->protocol != IPPROTO_TCP) {
         return NF_ACCEPT;
+    }
     tcph = tcp_hdr(skb);
 
     user_data = (unsigned char *)((unsigned char *)tcph + (tcph->doff * 4));

