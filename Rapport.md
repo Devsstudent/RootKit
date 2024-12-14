@@ -203,3 +203,10 @@ L'une des fonctionnalités clés de notre rootkit est le masquage des fichiers e
 ### En résumé
 
 En résumé, notre rootkit est chargé automatiquement au démarrage du système. Après avoir attendu que le système soit complètement monté et prêt, il compile et exécute le compagnon (le "companion"). Ce dernier est conçu pour être invisible : il est masqué dans la liste des processus en cours d'exécution, et tout fichier ou répertoire associé à notre rootkit est également rendu invisible. Cela garantit que notre rootkit reste furtif tout au long de son exécution.
+
+### Pistes d'amélioration
+
+La meilleure solution serait de télécharger le compagnon sur la machine hôte.
+De même, je n'ai pas réussi à cacher la ligne dans le fichier `inittab` lors de la lecture et de l'écriture.
+Il y a également un "léger" manque de fonctionnalités au niveau de notre programme compagnon.
+
