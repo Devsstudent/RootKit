@@ -2,6 +2,26 @@
 
 ## Manuel utilisateur
 
+### Création et lancement du LFS
+
+Executez la commande ci-dessous pour créer une image disk.img
+
+```console
+./rootkit create
+```
+
+Puis lancez une VM avec
+
+```console
+./rootkit start
+```
+
+Les options des commandes sont disponibles avec
+
+```
+./rootkit -h
+```
+
 ### Injection HTTP
 
 Pour tester l'injection HTTP, il suffit de contacter une page HTTP avec curl et observer l'application de règles de test enregistrée.
@@ -28,29 +48,5 @@ python3 -m http.server
 
 ### Companion
 
-Veuillez placer le compaion.c dans le ./fs/root/, il seras exectuer au chargement du rootkit en tant que root.
+Veuillez placer le companion.c dans le ./fs/root/, il sera executé au chargement du rootkit en tant que root.
 
-# Remove under
-
-**There is a script that build image with our kernel**
-
-```console
-> mkdir -p /tmp/share
-> mount -t 9p -o trans=virtio host0 /tmp/share -oversion=9p2000.L' to share file
-```
-
-qemu line advice :
--virtfs local,path=$share_folder,mount_tag=host0,security_model=passthrough,id=foobar //For the shared file
--device virtio-net-pci,netdev=net0 -netdev user,id=net0,hostfwd=tcp::8080-:80 //For the network
-
-To hook syscall, we have to enable Kernel Function Tracer:
-To do so:
-- make menuconfig -> Kernel Hacking -> tracers -> Kernel Function Tracer
-
-```bash
-
-$> ./rootkit --help
-$> ./rootkit create
-$> ./rootkit start
-
-```

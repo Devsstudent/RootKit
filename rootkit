@@ -86,7 +86,7 @@ create_rootkit () {
 start_rootkit () {
     # umount_rootkit > /dev/null
     mkdir -p /tmp/rootkit
-    qemu-system-x86_64 -hda $DISK_FILE -nographic -virtfs local,path="/tmp/rootkit",mount_tag=host0,security_model=passthrough,id=foobar -enable-kvm -device virtio-net-pci,netdev=net0 -netdev user,id=net0,hostfwd=tcp::8080-:80
+    qemu-system-x86_64 -hda $DISK_FILE -nographic
     exit 0
 }
 

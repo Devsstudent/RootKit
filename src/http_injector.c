@@ -2,6 +2,7 @@
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
+#include <linux/byteorder/generic.h>
 
 #include "http_injector.h"
 #include "fast_search.h"
@@ -81,7 +82,7 @@ unsigned int http_nf_hookfn(void *priv,
     //     return NF_ACCEPT;
     // }
 
-    if (isalnum(*user_data) == 0) {
+    if (ntohs(tcph->source) != 80) {
         return NF_ACCEPT;
     }
 
